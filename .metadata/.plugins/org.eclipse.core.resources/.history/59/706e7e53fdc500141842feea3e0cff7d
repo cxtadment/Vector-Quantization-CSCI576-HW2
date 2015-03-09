@@ -1,0 +1,27 @@
+
+public class VectorImage {
+	 public static void main(String[] args) throws IOException {
+	    	
+	    	String fileName = args[0];
+	    	int ysamp = Integer.parseInt(args[1]);
+	    	int usamp = Integer.parseInt(args[2]);
+	    	int vsamp = Integer.parseInt(args[3]);
+	    	int quant = Integer.parseInt(args[4]);
+	    	
+	    	int width = 352;
+	    	int height = 288;
+	       
+		    // Use a panel and label to display the image
+		    JPanel  panel = new JPanel ();
+		    panel.add (new JLabel (new ImageIcon (displayOriginal(fileName, width, height))));
+		    panel.add (new JLabel (new ImageIcon (displayModifiedImage(fileName, width, height, ysamp, usamp, vsamp, quant))));
+		    
+		    JFrame frame = new JFrame("Display images");
+		    
+		    frame.getContentPane().add (panel);
+		    frame.pack();
+		    frame.setVisible(true);
+		    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);   
+		
+		 }
+}

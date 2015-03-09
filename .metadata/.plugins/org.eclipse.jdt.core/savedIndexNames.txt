@@ -1,0 +1,12 @@
+INDEX VERSION 1.126+C:\Users\ThinkPad\Documents\GitHub\hw2-of-mutimedia\.metadata\.plugins\org.eclipse.jdt.core
+277841213.index
+1352384128.index
+260261363.index
+3393215579.index
+3928954178.index
+858678862.index
+1324501807.index
+1007796467.index
+2494669441.index
+3965264027.index
+2321574343.index
