@@ -1,3 +1,4 @@
+
 import java.awt.*;
 import java.awt.image.*;
 import java.io.*;
@@ -104,30 +105,20 @@ public class VectorImage {
 					    int g = bg & 0xff;
 					    int b = bb & 0xff;
 					    
-					    //get Y
-					    double y = (int) (r*0.299 + g*0.587 +b*0.114);
-					    if(y<0){
-					    	y=0;
-					    }else if(y>255){
-					    	y=255;
-					    }
+					    int y = r;
 					    trans[j][i] = y;
+
 						ind++;
 					}
 				}
 				  
-				double newtrans[][] = vectorQuantization(trans, numVector);
-				//displayimg
-				for(int m=0; m<newtrans.length; m++){
-					for(int n=0; n<newtrans[m].length; n++){
-						double newy = newtrans[m][n];
-						int newr = (int) (newy*0.999);
-				    	int newg = (int) (newy*1.000);
-				    	int newb = (int) (newy*1.000); 
-				    	
-				    	int pix = ((0 << 24) + (newr << 16) + (newg << 8) + newb);
-				    	
-				    	img.setRGB(n,m,pix);
+				double newtrans[][] = vectorQuantization(trans, numVector, height, width);
+				for(int j=0; j<height; j++){
+					for(int i=0; i<width; i++){
+						int a = 0;
+						int y = (int)newtrans[j][i];
+						int pix = ((a << 24) + (y << 16) + (y << 8) + y);
+						img.setRGB(i,j,pix);
 					}
 				}
 				
@@ -140,23 +131,22 @@ public class VectorImage {
 		    return img;
 	}
 	
-	 private static double[][] vectorQuantization(double[][] trans, int numVector) {
-		 
-		List<VectorItem> vectorItems = new ArrayList<VectorItem>();
+	private static double[][] vectorQuantization(double[][] trans, int numVector, int height, int width) {
 		
-		int k = 0;
-		//create vector space
+		double[][] newtrans = new double[height][width];
+		List<Point> points = new ArrayList<Point>();
+		
+		//convert double array into List<Point> two dimension
 		for(int j=0; j<trans.length; j++){
 			for(int i=0; i<trans[j].length; i+=2){
-				VectorItem vectorItem = new VectorItem();
-				vectorItem.setX(trans[j][i]);
-				vectorItem.setY(trans[j][i+1]);
-				vectorItems.add(vectorItem);
-				k++;
+				Point p = new Point();
+				p.setX(trans[j][i]);
+				p.setY(trans[j][i+1]);
+				points.add(p);
 			}
 		}
 		
-		//initial centroids according to the input
+		//initial centroids
 		int num = (int) (Math.log(numVector)/Math.log(2));
 		double perlength = (double)256/(double)(2*num);
 		int allnum = num*num;
@@ -170,113 +160,96 @@ public class VectorImage {
 			}
 		}
 		
-		//doing quantization
-		List<VectorItem> newVectorItems = quantizationProcessor(vectorItems, centroids);
+		//doing kmeans (core) and get new List<Point> back
+		List<Point> newPoints = kmeans(centroids, points);
 		
-		for(int count=0; count<newVectorItems.size(); count++){
-			for(int j=0; j<trans.length; j++){
-				for(int i=0; i<trans[j].length; i+=2){
-					trans[j][i] = newVectorItems.get(count).getX();
-					trans[j][i+1] = newVectorItems.get(count).getY();
-				}
+		//covert List<points> to double[][]
+		int k = 0;
+		for(int j=0; j<newtrans.length; j++){
+			for(int i=0; i<newtrans[j].length;i+=2){
+				newtrans[j][i] = newPoints.get(k).getX();
+				newtrans[j][i+1] = newPoints.get(k).getY();
+				k++;
 			}
 		}
 		
-		return trans;
+		return newtrans;
 	}
-	 
-	
 
-	private static List<VectorItem> quantizationProcessor(List<VectorItem> vectorItems, List<Centroid> centroids) {
+
+	 
+
+	private static List<Point> kmeans(List<Centroid> centroids, List<Point> points) {
+        
+		final double bigNumber = Math.pow(10, 10);  
+        double minimum = bigNumber; 
+        boolean moving = true;
 		
-		List<VectorItem> newVectorItems = new ArrayList<VectorItem>();
-		
-		List<CodeWord> codeWords = new ArrayList<CodeWord>();
-		
-		//initial codeWords
-		//有问题
-		for(int w=0; w<centroids.size(); w++){
-			CodeWord codeWord = new CodeWord();
-			codeWord.setX(centroids.get(w).getX());
-			codeWord.setY(centroids.get(w).getY());
-			codeWords.add(codeWord);
-		}
-		
-		double difference = 100000000.0; 
-		while(difference>100){	
-			//distance	
-			for(int j=0; j<vectorItems.size(); j++){
-				double[] dis = new double[centroids.size()];
-				for(int i=0; i<centroids.size(); i++){
-					double disx = vectorItems.get(j).getX()-centroids.get(i).getX();
-					double disy = vectorItems.get(j).getY()-centroids.get(i).getY();
-					dis[i] = Math.sqrt(disx*disx+disy*disy);
-						
-				}
-				double min = 100000000;
-				int minindex = 0;
-				for(int dcount=0; dcount<dis.length; dcount++){
-					if(dis[dcount]<min){
-						min = dis[dcount];
-						minindex = dcount;
-					}
-				}
-				codeWords.get(minindex).getVectors().add(vectorItems.get(j));
-					
-			}
-			
-			
-			//core, update position
-			for(int m=0; m<codeWords.size(); m++){
-				
-				double amountx = 0;
-				double amounty = 0;
-				for(int n=0; n<codeWords.get(m).getVectors().size();n++){
-					amountx += codeWords.get(m).getVectors().get(n).getX();
-					amounty += codeWords.get(m).getVectors().get(n).getY();
-				}
-				double sizec = codeWords.get(m).getVectors().size();
-				double x = amountx/sizec;
-				double y = amounty/sizec;
-				centroids.get(m).setX(x);
-				centroids.get(m).setY(y);
-				
-			}
-			
-			
-			
-			//calculate difference
-			//有问题
-			double amountdiff = 0;
-			for(int p=0; p<centroids.size();p++){
-				double xdiff = centroids.get(p).getX()-codeWords.get(p).getX();
-				double ydiff = centroids.get(p).getY()-codeWords.get(p).getY();
-				double diff = Math.sqrt(xdiff*xdiff+ydiff*ydiff);
-				amountdiff += diff;
-				
-			}
-			
-			difference = amountdiff;
-//			System.out.print("difference:"+difference);
-//			
-		}
-		
-		//process return
-		double min = 1000000000;
-		for(int j=0; j<vectorItems.size(); j++){
-				for(int i=0; i<centroids.size(); i++){
-					double disx = vectorItems.get(j).getX()-centroids.get(i).getX();
-					double disy = vectorItems.get(j).getY()-centroids.get(i).getY();
-					double dis = Math.sqrt(disx*disx+disy*disy);
-					if(dis<min){
-						min = dis;
-						vectorItems.get(j).setX(centroids.get(i).getX());
-						vectorItems.get(j).setY(centroids.get(i).getY());
-					}
-				}
-		}
-		return newVectorItems;
+        while(moving){
+
+        	//make the points connect to its vector according to distance
+        	for(int i=0; i<points.size();i++){
+        		minimum = bigNumber;
+        		int clusterindex = 0;
+        		for(int j=0; j<centroids.size();j++){
+        			double distance = dist(points.get(i), centroids.get(j));
+        			if(distance<minimum){
+        				minimum = distance;
+        				clusterindex = j;
+        			}
+        		}
+        		points.get(i).setCluster(clusterindex);
+        	}
+            // calculate new centroids.
+            for(int i = 0; i < centroids.size(); i++){
+                int totalX = 0;
+                int totalY = 0;
+                int totalInCluster = 0;
+                for(int j = 0; j < points.size(); j++){
+                    if(points.get(j).getCluster() == i){
+                        totalX += points.get(j).getX();
+                        totalY += points.get(j).getY();
+                        totalInCluster++;
+                    }
+                }
+                if(totalInCluster > 0){
+                    centroids.get(i).setX(totalX/totalInCluster);
+                    centroids.get(i).setY(totalY/totalInCluster);
+
+                }
+            }
+            
+            moving = false;
+            double totaldiff = 0;
+            //judge moving or not by calculating mean quantization error
+            for(int i=0; i<points.size();i++){
+            	double diffx = points.get(i).getX() - centroids.get(points.get(i).getCluster()).getX();
+            	double diffy = points.get(i).getY() - centroids.get(points.get(i).getCluster()).getY();
+            	double diffxy = Math.abs(diffx)+Math.abs(diffy);
+            	totaldiff += diffxy;
+            }
+            
+            
+            
+            if((totaldiff/points.size())>20){
+            	moving = true;
+            }
+        }
+        
+        for(int i=0;i<points.size();i++){
+        	for(int j=0;j<centroids.size();j++){
+        		if(points.get(i).getCluster()==j){
+        			points.get(i).setX(centroids.get(j).getX());
+        			points.get(i).setY(centroids.get(j).getY());
+        		}
+        	}
+        }
+		return points;
 	}
+
+	private static double dist(Point p, Centroid c){
+        return Math.sqrt(Math.pow((c.getY() - p.getY()), 2) + Math.pow((c.getX() - p.getX()), 2));
+    }
 
 	public static void main(String[] args) throws IOException {
 	    	
@@ -300,39 +273,9 @@ public class VectorImage {
 		 }
 }
 
-class CodeWord{
-	private double x;
-	private double y;
-	private ArrayList<VectorItem> vectors = new ArrayList<VectorItem>();
-	
-	public double getX() {
-		return x;
-	}
-	public void setX(double x) {
-		this.x = x;
-	}
-	public double getY() {
-		return y;
-	}
-	public void setY(double y) {
-		this.y = y;
-	}
-	public ArrayList<VectorItem> getVectors() {
-		return vectors;
-	}
-	public void setVectors(ArrayList<VectorItem> vectors) {
-		this.vectors = vectors;
-	}
-	public CodeWord(){
-		
-	}
-	
-}
-
 class Centroid{
 	private double x;
 	private double y;
-	
 	public double getX() {
 		return x;
 	}
@@ -345,18 +288,21 @@ class Centroid{
 	public void setY(double y) {
 		this.y = y;
 	}
-	public Centroid() {
-		
+	public Centroid(double x, double y) {
+		super();
+		this.x = x;
+		this.y = y;
 	}
 	
-	
+	public Centroid(){
+		
+	}
 }
 
-class VectorItem{
-	
+class Point{
 	private double x;
 	private double y;
-	
+	private int cluster;
 	public double getX() {
 		return x;
 	}
@@ -369,9 +315,21 @@ class VectorItem{
 	public void setY(double y) {
 		this.y = y;
 	}
+	public int getCluster() {
+		return cluster;
+	}
+	public void setCluster(int cluster) {
+		this.cluster = cluster;
+	}
 	
-	public VectorItem(){
+	public Point(){
 		
 	}
 	
+	public Point(double x, double y, int cluster){
+		this.x = x;
+		this.y = y;
+		this.cluster = cluster;
+	}
+
 }
