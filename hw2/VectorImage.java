@@ -221,7 +221,7 @@ public class VectorImage {
             
             moving = false;
             double totaldiff = 0;
-            //judge moving or not by calculating mean quantization error
+            //moving or not, by calculating mean quantization error
             for(int i=0; i<points.size();i++){
             	double diffx = points.get(i).getX() - centroids.get(points.get(i).getCluster()).getX();
             	double diffy = points.get(i).getY() - centroids.get(points.get(i).getCluster()).getY();
@@ -230,8 +230,8 @@ public class VectorImage {
             }
             
             
-            
-            if((totaldiff/points.size())>20){
+            //change the limit of mean quantization error here
+            if((totaldiff/points.size())>16){
             	moving = true;
             }
         }
